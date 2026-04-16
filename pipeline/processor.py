@@ -10,10 +10,12 @@ from config import logger
 from database import crud
 from pipeline.qualifier import score_company
 from research.company_researcher import research_company
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 MIN_CONTACT_NAME_LENGTH = 3
 
 
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
 def run_pipeline(
     company_name: str,
     db: Session,
