@@ -10,8 +10,10 @@ from research.data_enricher import get_wikipedia_summary, get_yfinance_data, gue
 from research.search_engine import find_domain, search_web
 from research.site_finder import find_job_posting_locations, find_sites_from_news, find_sites_from_search
 from research.web_scraper import scrape_about_page, scrape_homepage, scrape_locations_page, scrape_team_page
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
 def research_company(
     company_name: str,
     progress_callback: Optional[Callable[[str], None]] = None,
@@ -199,28 +201,7 @@ def _extract_subsidiaries(results: list[dict], parent_name: str) -> list[dict]:
             3 < len(name) < 60
             and name not in seen
             and name.lower() != parent_name.lower()
-            and not any(skip in name.lower() for skip in ("the", "and", "for", "that", "which"))
         ):
             seen.add(name)
-            subsidiaries.append({
-                "name": name,
-                "relationship_type": "subsidiary",
-            })
-
-    return subsidiaries[:10]
-
-
-def _deduplicate_sites(sites: list[dict]) -> list[dict]:
-    """Remove duplicate sites based on city+country combination."""
-    seen: set[str] = set()
-    unique: list[dict] = []
-    for site in sites:
-        city = site.get("city", "").lower().strip()
-        country = site.get("country", "").lower().strip()
-        key = f"{city}_{country}"
-        if key and key not in seen:
-            seen.add(key)
-            unique.append(site)
-        elif not key:
-            unique.append(site)  # Keep sites without location data (from website scraping)
-    return unique
+            subsidiaries.append({"name": name, "relationship_type": "subsidiary"})
+    return subsidiaries
