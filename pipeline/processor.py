@@ -11,6 +11,8 @@ from database import crud
 from pipeline.qualifier import score_company
 from research.company_researcher import research_company
 from tenacity import retry, stop_after_attempt, wait_exponential
+import logging
+import traceback
 
 MIN_CONTACT_NAME_LENGTH = 3
 
@@ -70,10 +72,9 @@ def run_pipeline(
                     country=sub.get("country"),
                     notes=sub.get("notes"),
                 )
-            except crud.DatabaseError as db_exc:
-                logger.error("Database error while saving subsidiary %r: %s", sub.get("name"), db_exc)
             except Exception as exc:
-                logger.error("Unexpected error while saving subsidiary %r: %s", sub.get("name"), exc)
+                logger.error("Could not save subsidiary %r: %s", sub.get("name"), exc)
+                logger.debug(traceback.format_exc())
 
         # ── Persist plants ────────────────────────────────────────────────────────
         for plant in data.get("plants", []):
@@ -93,10 +94,9 @@ def run_pipeline(
                     source_url=plant.get("source_url"),
                     notes=plant.get("notes"),
                 )
-            except crud.DatabaseError as db_exc:
-                logger.error("Database error while saving plant %r: %s", plant.get("name"), db_exc)
             except Exception as exc:
-                logger.error("Unexpected error while saving plant %r: %s", plant.get("name"), exc)
+                logger.error("Could not save plant %r: %s", plant.get("name"), exc)
+                logger.debug(traceback.format_exc())
 
         # ── Persist contacts ──────────────────────────────────────────────────────
         for contact in data.get("contacts", []):
@@ -116,10 +116,9 @@ def run_pipeline(
                     source=contact.get("source", "web_search"),
                     confidence_score=contact.get("confidence_score", 0.4),
                 )
-            except crud.DatabaseError as db_exc:
-                logger.error("Database error while saving contact %r: %s", contact.get("full_name"), db_exc)
             except Exception as exc:
-                logger.error("Unexpected error while saving contact %r: %s", contact.get("full_name"), exc)
+                logger.error("Could not save contact %r: %s", contact.get("full_name"), exc)
+                logger.debug(traceback.format_exc())
 
         # Refresh company with relationships loaded for scoring
         db.refresh(company)
@@ -142,11 +141,9 @@ def run_pipeline(
             "subsidiaries_found": len(data.get("subsidiaries", [])),
         }
 
-    except research_company.ResearchError as research_exc:
-        logger.error("Research error for company %r: %s", company_name, research_exc)
-        raise
-    except Exception as exc:
-        logger.error("Unexpected error in pipeline for company %r: %s", company_name, exc)
+    except Exception as e:
+        logger.error("An error occurred in the pipeline: %s", e)
+        logger.debug(traceback.format_exc())
         raise
 
 
