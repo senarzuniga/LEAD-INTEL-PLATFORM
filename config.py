@@ -24,6 +24,20 @@ OPENAI_API_KEY: str | None = os.getenv("OPENAI_API_KEY")
 HUNTER_API_KEY: str | None = os.getenv("HUNTER_API_KEY")
 CLEARBIT_API_KEY: str | None = os.getenv("CLEARBIT_API_KEY")
 
+# Check if running in Kubernetes and override with secrets if available
+if os.path.exists('/var/run/secrets/kubernetes.io/serviceaccount'):
+    try:
+        with open('/etc/secrets/DATABASE_URL', 'r') as f:
+            DATABASE_URL = f.read().strip()
+        with open('/etc/secrets/OPENAI_API_KEY', 'r') as f:
+            OPENAI_API_KEY = f.read().strip()
+        with open('/etc/secrets/HUNTER_API_KEY', 'r') as f:
+            HUNTER_API_KEY = f.read().strip()
+        with open('/etc/secrets/CLEARBIT_API_KEY', 'r') as f:
+            CLEARBIT_API_KEY = f.read().strip()
+    except FileNotFoundError as e:
+        logger.warning(f"Kubernetes secret file not found: {e}")
+
 # ── Research settings ─────────────────────────────────────────────────────────
 REQUEST_DELAY: float = float(os.getenv("REQUEST_DELAY", "1.5"))
 REQUEST_TIMEOUT: int = 10
